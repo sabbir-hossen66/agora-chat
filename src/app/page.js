@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import { 
-  MessageCircle, 
   Send, 
   LogOut, 
   User, 
@@ -19,6 +18,7 @@ import {
   CheckCheck
 } from "lucide-react";
 import AgoraChat from "agora-chat";
+import ChatHeader from "@/components/ChatHeader";
 import TypingIndicator from "@/components/TypingIndicator";
 
 const APP_KEY = "611402009#1605378";
@@ -145,13 +145,19 @@ export default function ChatPage() {
           }
         });
 
-        // Set message status to 'sent' initially and track sent message
+        // Set message status to 'sent' initially
         updateMessageStatus(msg.id, 'sent');
         setSentMessageIds(prev => [...prev, msg.id]);
 
         const result = await chatClient.current?.send(msg);
         console.log("Message sent with ID:", msg.id);
         addLog(`To ${peerId}: ${message}`, "sent", msg.id);
+
+        // Simulate delivery after message is sent successfully
+        setTimeout(() => {
+          console.log("Simulating delivery receipt for:", msg.id);
+          updateMessageStatus(msg.id, 'delivered');
+        }, 1000);
 
         // Request delivery receipt for this message
         try {
@@ -230,6 +236,22 @@ export default function ChatPage() {
       },
       
       onTextMessage: (msg) => {
+        // Check for custom read receipt notification
+        if (msg.msg.startsWith("%%READ_RECEIPT_")) {
+          const messageId = msg.msg.replace("%%READ_RECEIPT_", "").replace("%%", "");
+          console.log("Custom read receipt received for message:", messageId);
+          
+          // Find and update the message status to read
+          sentMessageIds.forEach(sentId => {
+            if (sentId.includes(messageId.slice(-10)) || messageId.includes(sentId.slice(-10))) {
+              updateMessageStatus(sentId, 'read');
+              console.log(`Updated message ${sentId} to read status`);
+            }
+          });
+          
+          return; // Don't process this as a regular message
+        }
+        
         if (msg.msg === "%%TYPING_START%%") {
           setTypingUsers(prev => new Set([...prev, msg.from]));
           
@@ -266,16 +288,20 @@ export default function ChatPage() {
             console.log("Failed to send delivery ack:", error);
           }
           
-          // Automatically send read receipt when receiving a message (NO extra log)
+          // Simulate read receipt after receiving message
           setTimeout(() => {
             try {
-              chatClient.current?.sendReadAck({
+              // Send custom read notification
+              const readNotification = AgoraChat.message.create({
+                type: "txt",
                 to: msg.from,
-                id: msg.id,
+                msg: `%%READ_RECEIPT_${msg.id}%%`,
+                chatType: "singleChat",
               });
-              console.log("Read ack sent for:", msg.id);
+              chatClient.current?.send(readNotification);
+              console.log("Read notification sent for:", msg.id);
             } catch (error) {
-              console.log("Failed to send read receipt:", error);
+              console.log("Failed to send read notification:", error);
             }
           }, 2000);
         }
@@ -357,7 +383,7 @@ export default function ChatPage() {
     return () => {
       chatClient.current?.removeEventHandler("connection&message");
     };
-  }, [userId, sentMessageIds]);
+  }, [userId,sentMessageIds]);
 
   const getLogIcon = (type) => {
     switch (type) {
@@ -367,7 +393,7 @@ export default function ChatPage() {
       case "sent": return <Send className="w-4 h-4 text-blue-500" />;
       case "received": return <MessageSquare className="w-4 h-4 text-indigo-500" />;
       case "typing": return <Edit3 className="w-4 h-4 text-orange-500" />;
-      default: return <MessageCircle className="w-4 h-4 text-gray-500" />;
+      default: return <MessageSquare className="w-4 h-4 text-gray-500" />;
     }
   };
 
@@ -439,33 +465,8 @@ export default function ChatPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-500 rounded-full">
-                <MessageCircle className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">Agora Chat</h1>
-                <p className="text-gray-600">Real-time messaging with read receipts</p>
-              </div>
-            </div>
-            
-            {isLoggedIn && (
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2 bg-green-100 px-3 py-1 rounded-full">
-                  <Wifi className="w-4 h-4 text-green-600" />
-                  <span className="text-green-700 font-medium">Connected</span>
-                </div>
-                <div className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-full">
-                  <User className="w-4 h-4 text-gray-600" />
-                  <span className="text-gray-700 font-medium">{userId}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Header Component */}
+        <ChatHeader isLoggedIn={isLoggedIn} userId={userId} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Login/Chat Controls */}
@@ -562,8 +563,6 @@ export default function ChatPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-
-
                   {/* Disconnect Button */}
                   <button
                     onClick={handleLogout}
@@ -606,7 +605,7 @@ export default function ChatPage() {
               <div className="bg-gray-50 rounded-lg p-4 h-80 overflow-y-auto mb-4">
                 {logs.length === 0 && typingUsers.size === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                    <MessageCircle className="w-12 h-12 mb-2 opacity-50" />
+                    <MessageSquare className="w-12 h-12 mb-2 opacity-50" />
                     <p className="text-lg font-medium">No activity yet</p>
                     <p className="text-sm">Connect to start chatting!</p>
                   </div>
