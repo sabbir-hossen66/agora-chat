@@ -13,11 +13,34 @@ import {
   MessageSquare,
   Users,
   Wifi,
-  WifiOff
+  WifiOff,
+  Edit3
 } from "lucide-react";
 import AgoraChat from "agora-chat";
 
 const APP_KEY = "611402009#1605378";
+
+// Animated typing dots component
+const TypingDots = ({ user }) => (
+  <div className="flex items-center space-x-3 p-3 rounded-lg bg-orange-50 border border-orange-200">
+    <div className="flex-shrink-0 mt-0.5">
+      <Edit3 className="w-4 h-4 text-orange-500" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center space-x-2">
+        <span className="text-sm font-medium text-orange-600">{user}</span>
+        <div className="flex space-x-1">
+          <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+          <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+          <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+        </div>
+      </div>
+      <p className="text-xs text-gray-500 mt-1">
+        {new Date().toLocaleTimeString()}
+      </p>
+    </div>
+  </div>
+);
 
 export default function ChatPage() {
   const [userId, setUserId] = useState("");
@@ -27,6 +50,8 @@ export default function ChatPage() {
   const [message, setMessage] = useState("");
   const [logs, setLogs] = useState([]);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [typingUsers, setTypingUsers] = useState(new Set());
+  const [typingTimer, setTypingTimer] = useState(null);
   const chatClient = useRef(null);
 
   const addLog = (log, type = "info") => {
@@ -55,6 +80,50 @@ export default function ChatPage() {
     }
   };
 
+  // Handle typing indicator - IMPROVED VERSION
+  const handleTyping = async (value) => {
+    setMessage(value);
+    
+    if (!peerId.trim() || !isLoggedIn) return;
+
+    try {
+      if (value.trim()) {
+        // Send special typing message
+        const typingMsg = AgoraChat.message.create({
+          type: "txt",
+          to: peerId,
+          msg: "%%TYPING_START%%",
+          chatType: "singleChat",
+        });
+        await chatClient.current?.send(typingMsg);
+
+        // Clear previous timer
+        if (typingTimer) {
+          clearTimeout(typingTimer);
+        }
+
+        // Set timer to send typing end
+        const timer = setTimeout(async () => {
+          try {
+            const typingEndMsg = AgoraChat.message.create({
+              type: "txt", 
+              to: peerId,
+              msg: "%%TYPING_END%%",
+              chatType: "singleChat",
+            });
+            await chatClient.current?.send(typingEndMsg);
+          } catch (error) {
+            console.log("Typing end error:", error);
+          }
+        }, 2000);
+
+        setTypingTimer(timer);
+      }
+    } catch (error) {
+      console.log("Typing indicator error:", error);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!message.trim()) {
       addLog("Please enter a message", "error");
@@ -67,15 +136,28 @@ export default function ChatPage() {
     }
 
     try {
-      const msg = AgoraChat.message.create({
+      // Send typing end before message
+      const typingEndMsg = AgoraChat.message.create({
         type: "txt",
         to: peerId,
-        msg: message,
+        msg: "%%TYPING_END%%", 
         chatType: "singleChat",
       });
+      await chatClient.current?.send(typingEndMsg);
 
-      await chatClient.current?.send(msg);
-      addLog(`To ${peerId}: ${message}`, "sent");
+      // Small delay then send actual message
+      setTimeout(async () => {
+        const msg = AgoraChat.message.create({
+          type: "txt",
+          to: peerId,
+          msg: message,
+          chatType: "singleChat",
+        });
+
+        await chatClient.current?.send(msg);
+        addLog(`To ${peerId}: ${message}`, "sent");
+      }, 100);
+      
       setMessage("");
       
     } catch (error) {
@@ -84,12 +166,19 @@ export default function ChatPage() {
   };
 
   const handleLogout = () => {
+    // Clear typing timer
+    if (typingTimer) {
+      clearTimeout(typingTimer);
+      setTypingTimer(null);
+    }
+    
     chatClient.current?.close();
     setIsLoggedIn(false);
     setUserId("");
     setToken("");
     setPeerId("");
     setMessage("");
+    setTypingUsers(new Set());
     addLog("Disconnected from chat", "info");
   };
 
@@ -118,7 +207,35 @@ export default function ChatPage() {
       },
       
       onTextMessage: (msg) => {
-        addLog(`${msg.from}: ${msg.msg}`, "received");
+        // Handle special typing messages
+        if (msg.msg === "%%TYPING_START%%") {
+          setTypingUsers(prev => new Set([...prev, msg.from]));
+          
+          // Auto remove typing indicator after 3 seconds
+          setTimeout(() => {
+            setTypingUsers(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(msg.from);
+              return newSet;
+            });
+          }, 3000);
+          
+        } else if (msg.msg === "%%TYPING_END%%") {
+          // Remove typing indicator immediately
+          setTypingUsers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(msg.from);
+            return newSet;
+          });
+        } else {
+          // Regular message - also remove typing indicator for this user
+          setTypingUsers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(msg.from);
+            return newSet;
+          });
+          addLog(`${msg.from}: ${msg.msg}`, "received");
+        }
       },
       
       onError: (error) => {
@@ -152,6 +269,7 @@ export default function ChatPage() {
       case "warning": return <Clock className="w-4 h-4 text-yellow-500" />;
       case "sent": return <Send className="w-4 h-4 text-blue-500" />;
       case "received": return <MessageSquare className="w-4 h-4 text-indigo-500" />;
+      case "typing": return <Edit3 className="w-4 h-4 text-orange-500" />;
       default: return <MessageCircle className="w-4 h-4 text-gray-500" />;
     }
   };
@@ -163,6 +281,7 @@ export default function ChatPage() {
       case "warning": return "text-yellow-700";
       case "sent": return "text-blue-700";
       case "received": return "text-indigo-700";
+      case "typing": return "text-orange-600 italic";
       default: return "text-gray-700";
     }
   };
@@ -179,7 +298,7 @@ export default function ChatPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Agora Chat</h1>
-                <p className="text-gray-600">Real-time messaging platform</p>
+                <p className="text-gray-600">Real-time messaging with typing indicators</p>
               </div>
             </div>
             
@@ -209,7 +328,6 @@ export default function ChatPage() {
 
               {!isLoggedIn ? (
                 <div className="space-y-4">
-
 
                   {/* Username Input */}
                   <div>
@@ -296,17 +414,27 @@ export default function ChatPage() {
                     />
                   </div>
 
-                  {/* Message Input */}
+                  {/* Message Input with Typing Indicator */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <MessageCircle className="w-4 h-4 inline mr-1" />
                       Message
+                      {message.trim() && (
+                        <span className="ml-2 text-xs text-blue-500 italic flex items-center">
+                          <Edit3 className="w-3 h-3 mr-1" />
+                          <div className="flex space-x-1">
+                            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                          </div>
+                        </span>
+                      )}
                     </label>
                     <div className="flex space-x-2">
                       <input
                         type="text"
                         value={message}
-                        onChange={(e) => setMessage(e.target.value)}
+                        onChange={(e) => handleTyping(e.target.value)}
                         placeholder="Type your message..."
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -362,7 +490,7 @@ export default function ChatPage() {
               </div>
 
               <div className="bg-gray-50 rounded-lg p-4 h-96 overflow-y-auto">
-                {logs.length === 0 ? (
+                {logs.length === 0 && typingUsers.size === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-500">
                     <MessageCircle className="w-12 h-12 mb-2 opacity-50" />
                     <p className="text-lg font-medium">No activity yet</p>
@@ -378,6 +506,8 @@ export default function ChatPage() {
                             ? 'bg-blue-50 border border-blue-200' 
                             : log.type === 'received'
                             ? 'bg-indigo-50 border border-indigo-200'
+                            : log.type === 'typing'
+                            ? 'bg-orange-50 border border-orange-200 animate-pulse'
                             : 'bg-white border border-gray-200'
                         }`}
                       >
@@ -394,6 +524,11 @@ export default function ChatPage() {
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Show typing indicators for active users */}
+                    {Array.from(typingUsers).map((user) => (
+                      <TypingDots key={user} user={user} />
+                    ))}
                   </div>
                 )}
               </div>
@@ -404,8 +539,22 @@ export default function ChatPage() {
         {/* Footer */}
         <div className="mt-6 text-center text-gray-600">
           <p className="text-sm">
-            Built with Agora Chat SDK • Real-time messaging platform
+            Built with Agora Chat SDK • Real-time messaging with typing indicators • Ready to use!
           </p>
+          <div className="mt-2 flex justify-center space-x-4 text-xs">
+            <span className="flex items-center">
+              <div className="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
+              Sent Messages
+            </span>
+            <span className="flex items-center">
+              <div className="w-2 h-2 bg-indigo-500 rounded-full mr-1"></div>
+              Received Messages
+            </span>
+            <span className="flex items-center">
+              <div className="w-2 h-2 bg-orange-500 rounded-full mr-1"></div>
+              Typing Indicators
+            </span>
+          </div>
         </div>
       </div>
     </div>
