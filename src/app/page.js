@@ -14,7 +14,9 @@ import {
   Users,
   Wifi,
   WifiOff,
-  Edit3
+  Edit3,
+  Check,
+  CheckCheck
 } from "lucide-react";
 import AgoraChat from "agora-chat";
 import TypingIndicator from "@/components/TypingIndicator";
@@ -31,11 +33,20 @@ export default function ChatPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [typingTimer, setTypingTimer] = useState(null);
+  const [messageStatuses, setMessageStatuses] = useState({}); // Track message status
+  const [sentMessageIds, setSentMessageIds] = useState([]); // Track sent message IDs
   const chatClient = useRef(null);
 
-  const addLog = (log, type = "info") => {
+  const addLog = (log, type = "info", messageId = null) => {
     const timestamp = new Date().toLocaleTimeString();
-    setLogs((prevLogs) => [...prevLogs, { message: log, type, timestamp }]);
+    setLogs((prevLogs) => [...prevLogs, { message: log, type, timestamp, messageId }]);
+  };
+
+  const updateMessageStatus = (messageId, status) => {
+    setMessageStatuses(prev => ({
+      ...prev,
+      [messageId]: status
+    }));
   };
 
   const handleLogin = async () => {
@@ -125,10 +136,35 @@ export default function ChatPage() {
           to: peerId,
           msg: message,
           chatType: "singleChat",
+          // Enable delivery and read receipts properly
+          deliverOnlineOnly: false,
+          msgConfig: {
+            allowGroupAck: true,
+            // Request delivery receipt
+            delivery: true,
+          }
         });
 
-        await chatClient.current?.send(msg);
-        addLog(`To ${peerId}: ${message}`, "sent");
+        // Set message status to 'sent' initially and track sent message
+        updateMessageStatus(msg.id, 'sent');
+        setSentMessageIds(prev => [...prev, msg.id]);
+
+        const result = await chatClient.current?.send(msg);
+        console.log("Message sent with ID:", msg.id);
+        addLog(`To ${peerId}: ${message}`, "sent", msg.id);
+
+        // Request delivery receipt for this message
+        try {
+          // Send delivery request immediately after sending message
+          setTimeout(() => {
+            chatClient.current?.sendDeliveryRequest({
+              to: peerId,
+              id: msg.id,
+            });
+          }, 500);
+        } catch (deliveryError) {
+          console.log("Delivery receipt request error:", deliveryError);
+        }
       }, 100);
       
       setMessage("");
@@ -151,6 +187,8 @@ export default function ChatPage() {
     setPeerId("");
     setMessage("");
     setTypingUsers(new Set());
+    setMessageStatuses({});
+    setSentMessageIds([]);
     addLog("Disconnected from chat", "info");
   };
 
@@ -163,6 +201,10 @@ export default function ChatPage() {
     chatClient.current = new AgoraChat.connection({ 
       appKey: APP_KEY,
       isHttpDNS: true,
+      // Enable delivery receipts
+      delivery: true,
+      // Enable read receipts  
+      enableReceipts: true,
     });
 
     chatClient.current.addEventHandler("connection&message", {
@@ -170,6 +212,15 @@ export default function ChatPage() {
         setIsLoggedIn(true);
         setIsConnecting(false);
         addLog(`Successfully connected as ${userId}`, "success");
+        
+        // Enable delivery and read receipts after connection
+        try {
+          chatClient.current?.setDeliveryAck(true);
+          chatClient.current?.enableDeliveryAck(true);
+          console.log("✅ Delivery receipts enabled");
+        } catch (error) {
+          console.log("Failed to enable delivery receipts:", error);
+        }
       },
       
       onDisconnected: () => {
@@ -202,7 +253,85 @@ export default function ChatPage() {
             newSet.delete(msg.from);
             return newSet;
           });
-          addLog(`${msg.from}: ${msg.msg}`, "received");
+          addLog(`${msg.from}: ${msg.msg}`, "received", msg.id);
+          
+          // Send delivery acknowledgment when receiving message
+          try {
+            chatClient.current?.sendDeliveryAck({
+              to: msg.from,
+              id: msg.id,
+            });
+            console.log("Delivery ack sent for:", msg.id);
+          } catch (error) {
+            console.log("Failed to send delivery ack:", error);
+          }
+          
+          // Automatically send read receipt when receiving a message (NO extra log)
+          setTimeout(() => {
+            try {
+              chatClient.current?.sendReadAck({
+                to: msg.from,
+                id: msg.id,
+              });
+              console.log("Read ack sent for:", msg.id);
+            } catch (error) {
+              console.log("Failed to send read receipt:", error);
+            }
+          }, 2000);
+        }
+      },
+
+      // Handle delivery receipts - simpler approach
+      onDeliveredMessage: (msg) => {
+        console.log("Delivery receipt received:", msg);
+        console.log("Currently tracked sent messages:", sentMessageIds);
+        
+        // Update the most recent sent message to delivered
+        if (sentMessageIds.length > 0) {
+          const lastSentId = sentMessageIds[sentMessageIds.length - 1];
+          console.log(`Updating last sent message ${lastSentId} to delivered`);
+          updateMessageStatus(lastSentId, 'delivered');
+        }
+      },
+
+      // Handle read receipts - simpler approach
+      onReadMessage: (msg) => {
+        console.log("Read receipt received:", msg);
+        
+        // Update the most recent sent message to read
+        if (sentMessageIds.length > 0) {
+          const lastSentId = sentMessageIds[sentMessageIds.length - 1];
+          console.log(`Updating last sent message ${lastSentId} to read`);
+          updateMessageStatus(lastSentId, 'read');
+        }
+      },
+
+      // Handle delivery acknowledgments
+      onDeliveryMessage: (msg) => {
+        console.log("📦 Delivery ack received:", msg);
+        const messageId = msg.mid || msg.id || msg.messageId;
+        if (messageId) {
+          updateMessageStatus(messageId, 'delivered');
+        }
+      },
+
+      // Handle read acknowledgments  
+      onReadAckMessage: (msg) => {
+        console.log("📖 Read ack received:", msg);
+        const messageId = msg.mid || msg.id || msg.messageId;
+        if (messageId) {
+          updateMessageStatus(messageId, 'read');
+        }
+      },
+
+      // Additional handler for delivery status
+      onReceivedMessage: (msg) => {
+        console.log("📨 Message received event:", msg);
+        if (msg.type === 'delivery') {
+          const messageId = msg.mid || msg.id || msg.messageId;
+          if (messageId) {
+            updateMessageStatus(messageId, 'delivered');
+          }
         }
       },
       
@@ -228,7 +357,7 @@ export default function ChatPage() {
     return () => {
       chatClient.current?.removeEventHandler("connection&message");
     };
-  }, [userId]);
+  }, [userId, sentMessageIds]);
 
   const getLogIcon = (type) => {
     switch (type) {
@@ -251,6 +380,46 @@ export default function ChatPage() {
       case "received": return "text-indigo-700";
       case "typing": return "text-orange-600 italic";
       default: return "text-gray-700";
+    }
+  };
+
+  // Message status indicator component - WhatsApp style
+  const MessageStatus = ({ messageId, type }) => {
+    if (type !== 'sent') return null;
+    
+    const status = messageStatuses[messageId] || 'sent';
+    
+    switch (status) {
+      case 'sent':
+        return (
+          <div className="flex justify-end mt-1">
+            <Check className="w-3 h-3 text-gray-400" title="Sent" />
+          </div>
+        );
+      case 'delivered':
+        return (
+          <div className="flex justify-end mt-1">
+            <div className="relative">
+              <Check className="w-3 h-3 text-gray-500" />
+              <Check className="w-3 h-3 text-gray-500 absolute -right-1 top-0" />
+            </div>
+          </div>
+        );
+      case 'read':
+        return (
+          <div className="flex justify-end mt-1">
+            <div className="relative">
+              <Check className="w-3 h-3 text-blue-500" />
+              <Check className="w-3 h-3 text-blue-500 absolute -right-1 top-0" />
+            </div>
+          </div>
+        );
+      default:
+        return (
+          <div className="flex justify-end mt-1">
+            <Clock className="w-3 h-3 text-gray-300" title="Sending..." />
+          </div>
+        );
     }
   };
 
@@ -279,7 +448,7 @@ export default function ChatPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Agora Chat</h1>
-                <p className="text-gray-600">Real-time messaging with typing indicators</p>
+                <p className="text-gray-600">Real-time messaging with read receipts</p>
               </div>
             </div>
             
@@ -394,6 +563,7 @@ export default function ChatPage() {
                     />
                   </div>
 
+
                   {/* Disconnect Button */}
                   <button
                     onClick={handleLogout}
@@ -481,6 +651,8 @@ export default function ChatPage() {
                                 }`}>
                                   {messageText}
                                 </p>
+                                {/* Message status indicator - only for sent messages */}
+                                <MessageStatus messageId={log.messageId} type={log.type} />
                               </div>
                             </div>
                           </div>
