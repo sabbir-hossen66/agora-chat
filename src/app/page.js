@@ -17,30 +17,12 @@ import {
   Edit3
 } from "lucide-react";
 import AgoraChat from "agora-chat";
+import TypingIndicator from "@/components/TypingIndicator";
 
 const APP_KEY = "611402009#1605378";
 
-// Animated typing dots component
-const TypingDots = ({ user }) => (
-  <div className="flex items-center space-x-3 p-3 rounded-lg bg-orange-50 border border-orange-200">
-    <div className="flex-shrink-0 mt-0.5">
-      <Edit3 className="w-4 h-4 text-orange-500" />
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center space-x-2">
-        <span className="text-sm font-medium text-orange-600">{user}</span>
-        <div className="flex space-x-1">
-          <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-          <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-          <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-        </div>
-      </div>
-      <p className="text-xs text-gray-500 mt-1">
-        {new Date().toLocaleTimeString()}
-      </p>
-    </div>
-  </div>
-);
+// TypingIndicator Component (move this to separate file later)
+// (Removed duplicate TypingIndicator definition to fix parsing error)
 
 export default function ChatPage() {
   const [userId, setUserId] = useState("");
@@ -80,7 +62,6 @@ export default function ChatPage() {
     }
   };
 
-  // Handle typing indicator - IMPROVED VERSION
   const handleTyping = async (value) => {
     setMessage(value);
     
@@ -88,7 +69,6 @@ export default function ChatPage() {
 
     try {
       if (value.trim()) {
-        // Send special typing message
         const typingMsg = AgoraChat.message.create({
           type: "txt",
           to: peerId,
@@ -97,12 +77,10 @@ export default function ChatPage() {
         });
         await chatClient.current?.send(typingMsg);
 
-        // Clear previous timer
         if (typingTimer) {
           clearTimeout(typingTimer);
         }
 
-        // Set timer to send typing end
         const timer = setTimeout(async () => {
           try {
             const typingEndMsg = AgoraChat.message.create({
@@ -115,7 +93,7 @@ export default function ChatPage() {
           } catch (error) {
             console.log("Typing end error:", error);
           }
-        }, 2000);
+        }, 3000);
 
         setTypingTimer(timer);
       }
@@ -136,7 +114,6 @@ export default function ChatPage() {
     }
 
     try {
-      // Send typing end before message
       const typingEndMsg = AgoraChat.message.create({
         type: "txt",
         to: peerId,
@@ -145,7 +122,6 @@ export default function ChatPage() {
       });
       await chatClient.current?.send(typingEndMsg);
 
-      // Small delay then send actual message
       setTimeout(async () => {
         const msg = AgoraChat.message.create({
           type: "txt",
@@ -166,7 +142,6 @@ export default function ChatPage() {
   };
 
   const handleLogout = () => {
-    // Clear typing timer
     if (typingTimer) {
       clearTimeout(typingTimer);
       setTypingTimer(null);
@@ -207,28 +182,24 @@ export default function ChatPage() {
       },
       
       onTextMessage: (msg) => {
-        // Handle special typing messages
         if (msg.msg === "%%TYPING_START%%") {
           setTypingUsers(prev => new Set([...prev, msg.from]));
           
-          // Auto remove typing indicator after 3 seconds
           setTimeout(() => {
             setTypingUsers(prev => {
               const newSet = new Set(prev);
               newSet.delete(msg.from);
               return newSet;
             });
-          }, 3000);
+          }, 5000);
           
         } else if (msg.msg === "%%TYPING_END%%") {
-          // Remove typing indicator immediately
           setTypingUsers(prev => {
             const newSet = new Set(prev);
             newSet.delete(msg.from);
             return newSet;
           });
         } else {
-          // Regular message - also remove typing indicator for this user
           setTypingUsers(prev => {
             const newSet = new Set(prev);
             newSet.delete(msg.from);
@@ -248,7 +219,7 @@ export default function ChatPage() {
       },
       
       onTokenWillExpire: () => {
-        addLog("Token will expire soon", "warning");
+        addLog("Token will expire in 30 days - Please refresh", "warning");
       },
       
       onTokenExpired: () => {
@@ -328,7 +299,6 @@ export default function ChatPage() {
 
               {!isLoggedIn ? (
                 <div className="space-y-4">
-
                   {/* Username Input */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -420,13 +390,8 @@ export default function ChatPage() {
                       <MessageCircle className="w-4 h-4 inline mr-1" />
                       Message
                       {message.trim() && (
-                        <span className="ml-2 text-xs text-blue-500 italic flex items-center">
-                          <Edit3 className="w-3 h-3 mr-1" />
-                          <div className="flex space-x-1">
-                            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-                            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-                            <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-                          </div>
+                        <span className="ml-2 text-xs text-blue-500 italic">
+                          <TypingIndicator showUser={false} size="small" className="text-blue-500" />
                         </span>
                       )}
                     </label>
@@ -527,33 +492,12 @@ export default function ChatPage() {
                     
                     {/* Show typing indicators for active users */}
                     {Array.from(typingUsers).map((user) => (
-                      <TypingDots key={user} user={user} />
+                      <TypingIndicator key={user} user={user} />
                     ))}
                   </div>
                 )}
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-6 text-center text-gray-600">
-          <p className="text-sm">
-            Built with Agora Chat SDK • Real-time messaging with typing indicators • Ready to use!
-          </p>
-          <div className="mt-2 flex justify-center space-x-4 text-xs">
-            <span className="flex items-center">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
-              Sent Messages
-            </span>
-            <span className="flex items-center">
-              <div className="w-2 h-2 bg-indigo-500 rounded-full mr-1"></div>
-              Received Messages
-            </span>
-            <span className="flex items-center">
-              <div className="w-2 h-2 bg-orange-500 rounded-full mr-1"></div>
-              Typing Indicators
-            </span>
           </div>
         </div>
       </div>
