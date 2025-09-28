@@ -3,14 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { 
   Send, 
-  LogOut, 
-  User, 
-  Key, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock,
   MessageSquare,
-  Users,
   Wifi,
   WifiOff,
   Edit3
@@ -18,6 +11,7 @@ import {
 import AgoraChat from "agora-chat";
 import ChatHeader from "@/components/ChatHeader";
 import TypingIndicator from "@/components/TypingIndicator";
+import LoginPanel from "@/components/LoginPanel";
 
 const APP_KEY = "611402009#1605378";
 
@@ -230,30 +224,6 @@ export default function ChatPage() {
     };
   }, [userId]);
 
-  const getLogIcon = (type) => {
-    switch (type) {
-      case "success": return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case "error": return <AlertCircle className="w-4 h-4 text-red-500" />;
-      case "warning": return <Clock className="w-4 h-4 text-yellow-500" />;
-      case "sent": return <Send className="w-4 h-4 text-blue-500" />;
-      case "received": return <MessageSquare className="w-4 h-4 text-indigo-500" />;
-      case "typing": return <Edit3 className="w-4 h-4 text-orange-500" />;
-      default: return <MessageSquare className="w-4 h-4 text-gray-500" />;
-    }
-  };
-
-  const getLogTextColor = (type) => {
-    switch (type) {
-      case "success": return "text-green-700";
-      case "error": return "text-red-700";
-      case "warning": return "text-yellow-700";
-      case "sent": return "text-blue-700";
-      case "received": return "text-indigo-700";
-      case "typing": return "text-orange-600 italic";
-      default: return "text-gray-700";
-    }
-  };
-
   // Avatar component for messages
   const MessageAvatar = ({ type, username }) => {
     const isReceived = type === 'received';
@@ -276,109 +246,18 @@ export default function ChatPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Login/Chat Controls */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <Users className="w-5 h-5 mr-2" />
-                {isLoggedIn ? "Chat Controls" : "Connect to Chat"}
-              </h2>
-
-              {!isLoggedIn ? (
-                <div className="space-y-4">
-                  {/* Username Input */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <User className="w-4 h-4 inline mr-1" />
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      value={userId}
-                      onChange={(e) => setUserId(e.target.value)}
-                      placeholder="Enter your username"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      disabled={isConnecting}
-                    />
-                  </div>
-
-                  {/* Token Input */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Key className="w-4 h-4 inline mr-1" />
-                      Access Token
-                    </label>
-                    <textarea
-                      value={token}
-                      onChange={(e) => setToken(e.target.value)}
-                      placeholder="Paste your chat token here"
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                      disabled={isConnecting}
-                    />
-                  </div>
-
-                  {/* Connect Button */}
-                  <button
-                    onClick={handleLogin}
-                    disabled={isConnecting || !userId.trim() || !token.trim()}
-                    className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
-                  >
-                    {isConnecting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <Wifi className="w-4 h-4 mr-2" />
-                        Connect to Chat
-                      </>
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* User Info */}
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                        <span className="font-medium text-green-800">Connected as {userId}</span>
-                      </div>
-                      <button
-                        onClick={handleLogout}
-                        className="text-red-600 hover:text-red-800 p-1"
-                        title="Disconnect"
-                      >
-                        <LogOut className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Recipient Input */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <User className="w-4 h-4 inline mr-1" />
-                      Send to Username
-                    </label>
-                    <input
-                      type="text"
-                      value={peerId}
-                      onChange={(e) => setPeerId(e.target.value)}
-                      placeholder="Enter recipient username"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  {/* Disconnect Button */}
-                  <button
-                    onClick={handleLogout}
-                    className="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Disconnect
-                  </button>
-                </div>
-              )}
-            </div>
+            <LoginPanel
+              isLoggedIn={isLoggedIn}
+              userId={userId}
+              setUserId={setUserId}
+              token={token}
+              setToken={setToken}
+              peerId={peerId}
+              setPeerId={setPeerId}
+              isConnecting={isConnecting}
+              onLogin={handleLogin}
+              onLogout={handleLogout}
+            />
           </div>
 
           {/* Chat Logs */}
@@ -468,10 +347,26 @@ export default function ChatPage() {
                           >
                             <div className="flex items-start space-x-3 p-2 rounded-lg bg-white border border-gray-200 max-w-md">
                               <div className="flex-shrink-0 mt-0.5">
-                                {getLogIcon(log.type)}
+                                {log.type === 'success' && <div className="w-4 h-4 text-green-500">✓</div>}
+                                {log.type === 'error' && <div className="w-4 h-4 text-red-500">✗</div>}
+                                {log.type === 'warning' && <div className="w-4 h-4 text-yellow-500">!</div>}
+                                {log.type === 'sent' && <Send className="w-4 h-4 text-blue-500" />}
+                                {log.type === 'received' && <MessageSquare className="w-4 h-4 text-indigo-500" />}
+                                {log.type === 'typing' && <Edit3 className="w-4 h-4 text-orange-500" />}
+                                {!['success', 'error', 'warning', 'sent', 'received', 'typing'].includes(log.type) && 
+                                  <MessageSquare className="w-4 h-4 text-gray-500" />
+                                }
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-medium ${getLogTextColor(log.type)}`}>
+                                <p className={`text-xs font-medium ${
+                                  log.type === 'success' ? 'text-green-700' :
+                                  log.type === 'error' ? 'text-red-700' :
+                                  log.type === 'warning' ? 'text-yellow-700' :
+                                  log.type === 'sent' ? 'text-blue-700' :
+                                  log.type === 'received' ? 'text-indigo-700' :
+                                  log.type === 'typing' ? 'text-orange-600 italic' :
+                                  'text-gray-700'
+                                }`}>
                                   {log.message}
                                 </p>
                                 <p className="text-xs text-gray-400 mt-1">
