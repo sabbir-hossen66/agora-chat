@@ -1,5 +1,13 @@
 // components/LoginPanel.jsx
-import { LogOut, User, Key, CheckCircle, Users, Wifi } from "lucide-react";
+import {
+  LogOut,
+  User,
+  Key,
+  CheckCircle,
+  Users,
+  Wifi,
+  Plus,
+} from "lucide-react";
 
 const LoginPanel = ({
   isLoggedIn,
@@ -12,9 +20,10 @@ const LoginPanel = ({
   isConnecting,
   onLogin,
   onLogout,
+  onStartNewChat,
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 border-2 border-red-500">
+    <div className="bg-white rounded-lg shadow-lg p-6">
       <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
         <Users className="w-5 h-5 mr-2" />
         {isLoggedIn ? "Chat Controls" : "Connect to Chat"}
@@ -84,30 +93,33 @@ const LoginPanel = ({
                   Connected as {userId}
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Start New Chat Section */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-blue-800 mb-2 flex items-center">
+              <Plus className="w-4 h-4 mr-1" />
+              Start New Chat
+            </h3>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={peerId}
+                onChange={(e) => setPeerId(e.target.value)}
+                placeholder="Enter username"
+                className="flex-1 px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
               <button
-                onClick={onLogout}
-                className="text-red-600 hover:text-red-800 p-1"
-                title="Disconnect"
+                onClick={onStartNewChat}
+                disabled={!peerId.trim()}
+                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white px-3 py-2 rounded-lg transition-colors flex items-center"
               >
-                <LogOut className="w-4 h-4" />
+                <Plus className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Recipient Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <User className="w-4 h-4 inline mr-1" />
-              Send to Username
-            </label>
-            <input
-              type="text"
-              value={peerId}
-              onChange={(e) => setPeerId(e.target.value)}
-              placeholder="Enter recipient username"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
           {/* Disconnect Button */}
           <button
             onClick={onLogout}
