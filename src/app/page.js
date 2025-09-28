@@ -563,7 +563,7 @@ export default function ChatPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  {/* Disconnect Button */}
+               
                   <button
                     onClick={handleLogout}
                     className="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
@@ -576,7 +576,7 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Chat Logs */}
+        
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
@@ -657,7 +657,7 @@ export default function ChatPage() {
                           </div>
                         );
                       } else {
-                        // Other log types (connection, error, etc.)
+                     
                         return (
                           <div 
                             key={idx} 
@@ -681,7 +681,7 @@ export default function ChatPage() {
                       }
                     })}
                     
-                    {/* Show typing indicators for active users */}
+                   
                     {Array.from(typingUsers).map((user) => (
                       <div key={user} className="flex justify-start mb-3">
                         <div className="max-w-[75%]">
@@ -693,7 +693,7 @@ export default function ChatPage() {
                 )}
               </div>
               
-              {/* Message Input - WhatsApp Style */}
+           
               {isLoggedIn && (
                 <div className="bg-white p-3 rounded-lg border-t border-gray-200">
                   <div className="flex space-x-2">
