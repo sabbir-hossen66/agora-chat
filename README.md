@@ -1,6 +1,6 @@
 # 💬 Real-Time Chat Application
 
-!([chap app](https://i.ibb.co.com/gMkTx08j/Screenshot-1.png))
+![chap app](https://i.ibb.co.com/gMkTx08j/Screenshot-1.png)
 
 <div align="center">
 
