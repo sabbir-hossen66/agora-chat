@@ -204,9 +204,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- 📧 **Email**: support@yourchatapp.com
-- 💬 **Discord**: [Join our community](https://discord.gg/yourchatapp)
-- 📖 **Documentation**: [Read the docs](https://docs.yourchatapp.com)
+- 📧 **Email**: sabbirhossen.eng66@gmail.com
+- 💬 **Discord**: [Join our community](https://discord.com/channels/@me)
+- 📖 **Documentation**: [Read the docs](https://docs.agora.io/en/agora-chat/get-started/get-started-sdk?platform=web)
 
 ---
 
@@ -221,7 +221,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Built with ❤️ by [Sabbir Hossen](https://github.com/yourusername)**
+**Built with ❤️ by [Sabbir Hossen](https://github.com/sabbir-hossen66)**
 
 ⭐ **Star this repo if you found it helpful!** ⭐
 
