@@ -9,7 +9,7 @@
 
 **A modern, real-time chat application built with Next.js and Agora Chat SDK featuring read receipts, typing indicators, and seamless messaging.**
 
-[**Live Demo**](#-[live-demo](https://drive.google.com/drive/folders/11h23wIAEi9GLOCV6e9sh8yW2lFqG2Vhr)) • [**Features**](#-features) • [**Installation**](#-installation) • [**Usage**](#-usage) • [**Screenshots**](#-screenshots)
+[**Live Demo**](#-live-demo) • [**Features**](#-features) • [**Installation**](#-installation) • [**Usage**](#-usage) • [**Screenshots**](#-screenshots)
 
 </div>
 
@@ -17,7 +17,7 @@
 
 ## 🌟 Live Demo
 
-🚀 **Access the application**: `http://localhost:3000` (after running `npm run dev`)
+🚀 **Access the application**: `https://drive.google.com/drive/folders/11h23wIAEi9GLOCV6e9sh8yW2lFqG2Vhr` (after running `npm run dev`)
 
 ---
 
