@@ -14,6 +14,7 @@ import AgoraChat from "agora-chat";
 import ChatHeader from "@/components/ChatHeader";
 import TypingIndicator from "@/components/TypingIndicator";
 import LoginPanel from "@/components/LoginPanel";
+import MessageStatus from "@/components/MessageStatus";
 
 const APP_KEY = "611402009#1605378";
 
@@ -29,11 +30,27 @@ export default function ChatPage() {
   const [typingTimer, setTypingTimer] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [messageStatus, setMessageStatus] = useState({}); // Track message status
   const chatClient = useRef(null);
 
-  const addLog = (log, type = "info") => {
+  const addLog = (log, type = "info", messageId = null) => {
     const timestamp = new Date().toLocaleTimeString();
-    setLogs((prevLogs) => [...prevLogs, { message: log, type, timestamp }]);
+    const logEntry = { 
+      message: log, 
+      type, 
+      timestamp,
+      id: messageId || Date.now().toString() + Math.random().toString(36).substr(2, 9)
+    };
+    setLogs((prevLogs) => [...prevLogs, logEntry]);
+    return logEntry.id;
+  };
+
+  // Update message status
+  const updateMessageStatus = (messageId, status) => {
+    setMessageStatus(prev => ({
+      ...prev,
+      [messageId]: status
+    }));
   };
 
   const handleLogin = async () => {
@@ -130,8 +147,14 @@ export default function ChatPage() {
         chatType: "singleChat",
       });
 
+      // Add message to logs with "sending" status
+      const messageId = addLog(`To ${peerId}: ${message}`, "sent");
+      updateMessageStatus(messageId, 'sending');
+
       await chatClient.current?.send(msg);
-      addLog(`To ${peerId}: ${message}`, "sent");
+      
+      // Update status to sent
+      updateMessageStatus(messageId, 'sent');
       
       // Update conversation list
       updateConversationList();
@@ -140,6 +163,33 @@ export default function ChatPage() {
       
     } catch (error) {
       addLog(`Failed to send message: ${error.message}`, "error");
+    }
+  };
+
+  // Send read receipt for a message
+  const sendReadReceipt = async (messageId) => {
+    if (!isLoggedIn || !chatClient.current) return;
+    
+    try {
+      await chatClient.current.sendReadAck({
+        messageId: messageId,
+      });
+    } catch (error) {
+      console.error("Error sending read receipt:", error);
+    }
+  };
+
+  // Mark all messages as read for a conversation
+  const markAllAsRead = async (targetId) => {
+    if (!isLoggedIn || !chatClient.current) return;
+    
+    try {
+      await chatClient.current.markAllMessagesAsRead({
+        targetId: targetId,
+        chatType: "singleChat",
+      });
+    } catch (error) {
+      console.error("Error marking messages as read:", error);
     }
   };
 
@@ -157,6 +207,7 @@ export default function ChatPage() {
     setMessage("");
     setTypingUsers(new Set());
     setConversations([]);
+    setMessageStatus({});
     addLog("Disconnected from chat", "info");
   };
 
@@ -187,7 +238,9 @@ export default function ChatPage() {
             lastMessage: lastMessage ? {
               text: lastMessage.msg,
               time: lastMessage.time,
-              type: lastMessage.direction
+              type: lastMessage.direction,
+              id: lastMessage.id,
+              unread: lastMessage.unread
             } : null,
             timestamp: lastMessage?.time || Date.now()
           };
@@ -203,8 +256,14 @@ export default function ChatPage() {
   };
 
   // Handle conversation click
-  const handleConversationClick = (username) => {
+  const handleConversationClick = async (username) => {
     setPeerId(username);
+    
+    // Mark all messages as read when opening conversation
+    if (isLoggedIn) {
+      await markAllAsRead(username);
+      await updateConversationList();
+    }
   };
 
   // Filter conversations based on search
@@ -229,6 +288,9 @@ export default function ChatPage() {
         setIsConnecting(false);
         addLog(`Successfully connected as ${userId}`, "success");
         
+        // Enable delivery and read receipts
+        chatClient.current.setAck();
+        
         // Load conversations after connection
         setTimeout(() => {
           updateConversationList();
@@ -241,7 +303,7 @@ export default function ChatPage() {
         addLog("Disconnected from chat server", "info");
       },
       
-      onTextMessage: (msg) => {
+      onTextMessage: async (msg) => {
         if (msg.msg === "%%TYPING_START%%") {
           setTypingUsers(prev => new Set([...prev, msg.from]));
           
@@ -271,15 +333,32 @@ export default function ChatPage() {
           const messageTime = msg.time || currentTime;
           const isOfflineMessage = (currentTime - messageTime) > 10000;
           
-          if (isOfflineMessage) {
-            addLog(`${msg.from} (offline): ${msg.msg}`, "received");
-          } else {
-            addLog(`${msg.from}: ${msg.msg}`, "received");
-          }
+          const messageId = addLog(
+            `${msg.from}: ${msg.msg}`, 
+            "received",
+            msg.id
+          );
+
+          // Send read receipt for received message
+          await sendReadReceipt(msg.id);
 
           // Update conversation list when new message received
           updateConversationList();
         }
+      },
+      
+      // Handle message delivery callbacks
+      onDeliveredMessage: (messages) => {
+        messages.forEach(msg => {
+          updateMessageStatus(msg.id, 'delivered');
+        });
+      },
+      
+      // Handle message read callbacks
+      onReadMessage: (messages) => {
+        messages.forEach(msg => {
+          updateMessageStatus(msg.id, 'read');
+        });
       },
       
       onError: (error) => {
@@ -507,7 +586,7 @@ export default function ChatPage() {
                         
                         return (
                           <div 
-                            key={idx} 
+                            key={log.id} 
                             className={`flex w-full ${isReceived ? 'justify-start' : 'justify-end'}`}
                           >
                             <div className={`flex items-start space-x-3 max-w-[70%] ${
@@ -524,18 +603,24 @@ export default function ChatPage() {
                                 }`}>
                                   {messageText}
                                 </p>
-                                <p className={`text-xs mt-1 ${
-                                  isReceived ? 'text-gray-500' : 'text-blue-200'
-                                }`}>
-                                  {log.timestamp}
-                                </p>
+                                {!isReceived && (
+                                  <MessageStatus 
+                                    status={messageStatus[log.id] || ''} 
+                                    timestamp={log.timestamp}
+                                  />
+                                )}
+                                {isReceived && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {log.timestamp}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </div>
                         );
                       } else {
                         return (
-                          <div key={idx} className="flex justify-center">
+                          <div key={log.id} className="flex justify-center">
                             <div className="bg-white border border-gray-200 rounded-lg px-4 py-2 max-w-md">
                               <p className={`text-xs font-medium ${
                                 log.type === 'success' ? 'text-green-600' :
