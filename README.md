@@ -17,8 +17,7 @@
 
 ## 🌟 Live Demo
 
-🚀 **Access the application**: `https://drive.google.com/drive/folders/11h23wIAEi9GLOCV6e9sh8yW2lFqG2Vhr` (after running `npm run dev`)
-
+🚀 **Access the application**: [live-link](https://drive.google.com/drive/folders/11h23wIAEi9GLOCV6e9sh8yW2lFqG2Vhr) 
 ---
 
 ## ✨ Features
@@ -222,7 +221,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Built with ❤️ by [Your Name](https://github.com/yourusername)**
+**Built with ❤️ by [Sabbir Hossen](https://github.com/yourusername)**
 
 ⭐ **Star this repo if you found it helpful!** ⭐
 
