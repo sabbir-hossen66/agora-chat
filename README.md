@@ -1,5 +1,7 @@
 # 💬 Real-Time Chat Application
 
+![chat-app]([your-user-list-screenshot-url](https://i.ibb.co.com/gMkTx08j/Screenshot-1.png))
+
 <div align="center">
 
 ![Next.js](https://img.shields.io/badge/Next.js-14.0-black?style=for-the-badge&logo=next.js)
