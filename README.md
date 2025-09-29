@@ -19,7 +19,7 @@
 
 ## 🌟 Live Demo
 
-🚀 **Access the application**: [live-link](https://drive.google.com/file/d/1YLD90iKfx6Ez5MyfXOhndaISXP78VWjI/view?usp=sharing) 
+🚀 **See the application**: [live-link](https://drive.google.com/file/d/1YLD90iKfx6Ez5MyfXOhndaISXP78VWjI/view?usp=sharing) 
 ---
 
 ## ✨ Features
